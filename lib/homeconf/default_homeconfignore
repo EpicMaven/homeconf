@@ -1,0 +1,22 @@
+# homeconf ignore file
+# Files and directories in the homeconf directory matching an ignore pattern won't by symlinked from HOME
+# File glob patterns are supported.
+#
+# Examples:
+# .git
+# private_dir
+# *~
+# *.iml
+#
+# vcs
+.git
+.svn
+.hg
+.cvs
+
+# IntelliJ
+*.iml
+/.idea
+
+# emacs
+*~

@@ -1,0 +1,133 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+lib = File.expand_path('../lib', __dir__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+
+require 'getoptlong'
+require 'homeconf'
+
+@this = File.basename $PROGRAM_NAME
+
+def usage(retval = 0)
+  puts <<~USAGE
+    Usage: #{@this} [OPTION]...
+
+    Options:
+      -a, --add              Add filepath. Moves filepath into homeconf, then creates a link to it.
+      -c, --create           Create homeconf directory, if it doesn't exist.
+      -d, --directory        Homeconf directory. Default: #{Homeconf::DEFAULT_DIRECTORY}
+      -i, --initialize       Initialize homeconf.  Creates links to dot files and directories from homeconf to home.
+
+      -h, --help        show help
+      -v, --verbose     verbose output
+      -V, --version     show version
+  USAGE
+  exit retval
+end
+
+def print_version
+  header = File.realdirpath(File.join(File.dirname(__dir__), 'HEADER'))
+  puts <<~VERSION
+    #{@this} #{Homeconf::VERSION}
+    #{File.read(header)}
+  VERSION
+  exit 0
+end
+
+def error(msg)
+  puts "#{@this}: #{msg}"
+end
+
+def print_config(homeconf)
+  puts 'homeconf dirs:'
+  print_linked_table(homeconf, homeconf.list_homeconf_dirs)
+  puts 'homeconf files:'
+  print_linked_table(homeconf, homeconf.list_homeconf_files)
+end
+
+def print_linked_table(homeconf, filepaths)
+  longest = 1
+  filepaths.each do |filepath|
+    basename = File.basename(filepath)
+    length = basename.length
+    longest = length if length > longest
+  end
+
+  filepaths.each do |filepath|
+    basename = File.basename(filepath)
+    puts "  #{basename}#{' ' * (longest - basename.length + 2)}#{homeconf.linked?(filepath) ? 'linked' : 'unlinked'}"
+  end
+end
+
+# Handle options
+add_filepaths = Set.new
+homeconf_dir = Homeconf::DEFAULT_DIRECTORY
+create = false
+init = false
+verbose = false
+
+begin
+  opts = GetoptLong.new(
+    ['--add', '-a', GetoptLong::REQUIRED_ARGUMENT],
+    ['--create', '-c', GetoptLong::NO_ARGUMENT],
+    ['--directory', '-d', GetoptLong::REQUIRED_ARGUMENT],
+    ['--initialize', '-i', GetoptLong::NO_ARGUMENT],
+    ['--help', '-h', GetoptLong::NO_ARGUMENT],
+    ['--verbose', '-v', GetoptLong::NO_ARGUMENT],
+    ['--version', '-V', GetoptLong::NO_ARGUMENT]
+  )
+  opts.quiet = true # suppress GetoptLong stderr messages
+
+  opts.each do |opt, arg|
+    case opt
+    when '--add'
+      add_filepaths.add arg
+    when '--create'
+      create = true
+    when '--directory'
+      homeconf_dir = arg
+    when '--initialize'
+      init = true
+    when '--help'
+      usage
+      exit 0
+    when '--verbose'
+      verbose = true
+    when '--version'
+      print_version
+    else
+      puts "other passed: #{opt}"
+    end
+  end
+rescue GetoptLong::MissingArgument => e
+  error(e)
+  usage 1
+rescue StandardError => e
+  puts "#{e.class}: #{e}" if verbose
+  error(e)
+  exit 1
+end
+
+begin
+  homeconf = Homeconf::Homeconf.new(homeconf_dir, verbose: verbose)
+  homeconf.create if create
+  add_filepaths.each do |add_filepath|
+    puts add_filepath
+    Dir.glob(add_filepath, File::FNM_DOTMATCH).reject {|f| f == '.' || f == '..' }.each do |filepath|
+      homeconf.add filepath
+    end
+  end
+  homeconf.init if init
+
+  if homeconf.initialized?
+    puts "#{@this} initialized. #{homeconf.directory}"
+  else
+    puts "#{@this} not initialized. #{homeconf.directory}"
+  end
+  print_config(homeconf) if verbose
+rescue StandardError => e
+  puts "#{e.class}: #{e}" if verbose
+  error(e)
+  exit 1
+end
