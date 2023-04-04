@@ -45,7 +45,7 @@ $ homeconf --create
 You can add files and directories to your homeconf directory, then initialize to create symlinks from your home
 directory.
 ```
-$ echo "echo 'hello world'" > ~/homeconf
+$ echo "echo 'hello world'" > ~/homeconf/hello.sh
 $ mkdir ~/homeconf/my_scripts
 $ homeconf --init
 ```
