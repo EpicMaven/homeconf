@@ -119,14 +119,15 @@ module Homeconf
 
     def linked?(filepath)
       basename = File.basename(filepath)
-      link = File.join(Dir.home, basename)
+      link = File.join(@homedir, basename)
       return false unless File.symlink?(link)
 
-      expected_link_target = File.join(@directory, basename)
       link_target = File.readlink(link)
       link_target = File.join(@homedir, link_target) unless Pathname.new(link_target).absolute?
+      return false unless File.exist?(link_target)
 
       link_target = File.realpath(link_target)
+      expected_link_target = File.join(@directory, basename)
       expected_link_target.eql?(link_target)
     end
 
