@@ -6,6 +6,7 @@ require 'fileutils'
 require 'pathname'
 require_relative 'errors'
 require_relative 'file_finder'
+require_relative 'init'
 require_relative 'pathname'
 
 module Homeconf
@@ -26,12 +27,16 @@ module Homeconf
       @directory = File.realdirpath(File.expand_path(directory))
 
       if @directory.eql? @homedir
-        raise InvalidHomeconfDir, "cannot use directory '#{@directory}': #{$USER} home directory cannot be used."
+        raise InvalidHomeconfDir, "cannot use directory '#{@directory}': #{ENV['USER']} home directory cannot be used."
       end
     end
 
     def create
       mkdir_unless_exists @directory
+
+      init = Init.new(@directory)
+      mkdir_unless_exists init.dirname
+
       ignore_file = File.join(@directory, IGNORE_FILE)
       return if File.exist?(ignore_file)
 
@@ -64,6 +69,9 @@ module Homeconf
       unlinked_files.each do |f|
         link(f)
       end
+
+      init = Init.new(@directory, verbose: @verbose)
+      init.run
     end
 
     def validate
@@ -95,11 +103,13 @@ module Homeconf
     # Returns whether the homeconf is initialized.  Homeconf is initialized when all files and directories in the
     # homeconf directory that are not ignored and symlinked from the home directory.
     def initialized?
-      validate_dir @directory
-      unlinked_dirs.empty? && unlinked_files.empty?
-    rescue StandardError => e
-      puts "Error: #{e}" if @verbose
-      false
+      begin
+        validate_dir @directory
+        unlinked_dirs.empty? && unlinked_files.empty?
+      rescue StandardError => e
+        puts "Error: #{e}" if @verbose
+        false
+      end
     end
 
     def validate_dir(directory)
@@ -115,6 +125,10 @@ module Homeconf
 
     def list_homeconf_files
       FileFinder.homeconf_files @directory
+    end
+
+    def list_init_d
+      Init.new(@directory, verbose: @verbose).files
     end
 
     def linked?(filepath)
@@ -184,14 +198,17 @@ module Homeconf
     end
 
     def mkdir_unless_exists(directory, permissions = 0o755)
-      unless Dir.exist? directory
-        Dir.mkdir directory, permissions
-        puts "Created directory. #{directory}" if @verbose
+      begin
+        unless Dir.exist? directory
+          Dir.mkdir directory, permissions
+          puts "Created directory. #{directory}" if @verbose
+        end
+      rescue Errno::ENOENT
+        raise HomeconfDirNotFound, "No such directory. #{File.dirname directory}"
+      rescue Errno::ENOTDIR
+        raise InvalidHomeconfDir, "Not a directory. #{File.dirname directory}"
       end
-    rescue Errno::ENOENT
-      raise HomeconfDirNotFound, "No such directory. #{File.dirname directory}"
-    rescue Errno::ENOTDIR
-      raise InvalidHomeconfDir, "Not a directory. #{File.dirname directory}"
     end
+
   end
 end

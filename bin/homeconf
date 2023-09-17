@@ -44,6 +44,11 @@ def print_config(homeconf)
   print_linked_table(homeconf, homeconf.list_homeconf_dirs)
   puts 'homeconf files:'
   print_linked_table(homeconf, homeconf.list_homeconf_files)
+
+  puts 'init.d scripts:'
+  homeconf.list_init_d.each do |init_file|
+    puts "  #{File.basename(init_file)}"
+  end
 end
 
 def print_linked_table(homeconf, filepaths)
