@@ -6,6 +6,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 require 'getoptlong'
 require 'homeconf'
+require 'set'
 
 @this = File.basename $PROGRAM_NAME
 
